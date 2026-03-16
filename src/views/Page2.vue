@@ -10,6 +10,7 @@ const router = useRouter()
 
 // ── State ──────────────────────────────────────────────────────────
 const startHour = ref(Number(props.hour) % 24)
+const scrollDir = ref(1) // 1 = time forward, -1 = time backward
 
 // Sync startHour when the route param changes (same component reused)
 watch(() => props.hour, (h) => {
@@ -34,15 +35,26 @@ function fmtHour(h) {
 const topLeft     = computed(() => fmtHour(leftHours.value[0]))
 const bottomRight = computed(() => fmtHour((startHour.value + 8) % 24))
 
-// ── Wheel → shift time window ───────────────────────────────────────
+// Transition name driven by scroll direction
+const transitionName = computed(() =>
+  scrollDir.value > 0 ? 'shift-fwd' : 'shift-back'
+)
+
+// Debounce timestamp – plain variable, intentionally non-reactive (no Vue tracking needed)
+let lastScrollTime = 0
 function onArcWheel(e) {
   e.preventDefault()
+  const now = Date.now()
+  if (now - lastScrollTime < 380) return
+  lastScrollTime = now
   const delta = e.deltaY > 0 ? 1 : -1
+  scrollDir.value = delta
   startHour.value = ((startHour.value + delta) + 24) % 24
 }
 
 // ── Navigation ──────────────────────────────────────────────────────
 function goTo(hour) {
+  scrollDir.value = 1
   startHour.value = hour % 24
 }
 function goBack() {
@@ -64,53 +76,71 @@ function goBack() {
       <span class="scroll-hint">· 在时间刻度区域滚动鼠标可切换时间窗口</span>
     </div>
 
-    <div class="layout">
-      <!-- ── Left Arc Panel ── (wheel = shift window) -->
-      <div class="arc-col" @wheel.prevent="onArcWheel">
-        <ArcPanel
-          :hours="leftHours"
-          side="left"
-          :activeHours="allActive"
-          @markClick="goTo"
-        />
-      </div>
+    <!-- Animated layout wrapper -->
+    <div class="layout-wrapper">
+      <Transition :name="transitionName">
+        <div :key="startHour" class="layout">
+          <!-- ── Left List Column ── -->
+          <div class="list-col">
+            <div
+              v-for="(hr, k) in leftHours"
+              :key="k"
+              class="list-row"
+            >
+              <div class="row-header">
+                <span class="row-hour">{{ fmtHour(hr) }}</span>
+              </div>
+              <div class="scroll-box">
+                <TimeWindow
+                  v-for="w in getWindowsForHour(hr)"
+                  :key="w.id"
+                  :config="w"
+                />
+              </div>
+            </div>
+          </div>
 
-      <!-- ── Center Scroll Area ── -->
-      <div class="scroll-area">
-        <div
-          v-for="(_, k) in leftHours"
-          :key="k"
-          class="scroll-row"
-        >
-          <!-- Left scroll box -->
-          <div class="scroll-box">
-            <TimeWindow
-              v-for="w in getWindowsForHour(leftHours[k])"
-              :key="w.id"
-              :config="w"
+          <!-- ── Left Arc Panel ── (wheel = shift window) -->
+          <div class="arc-col" @wheel.prevent="onArcWheel">
+            <ArcPanel
+              :hours="leftHours"
+              side="left"
+              :activeHours="allActive"
+              @markClick="goTo"
             />
           </div>
-          <div class="row-divider" />
-          <!-- Right scroll box -->
-          <div class="scroll-box">
-            <TimeWindow
-              v-for="w in getWindowsForHour(rightHours[k])"
-              :key="w.id"
-              :config="w"
+
+          <!-- ── Right Arc Panel ── (wheel = shift window) -->
+          <div class="arc-col" @wheel.prevent="onArcWheel">
+            <ArcPanel
+              :hours="rightHours"
+              side="right"
+              :activeHours="allActive"
+              @markClick="goTo"
             />
+          </div>
+
+          <!-- ── Right List Column ── -->
+          <div class="list-col">
+            <div
+              v-for="(hr, k) in rightHours"
+              :key="k"
+              class="list-row"
+            >
+              <div class="row-header">
+                <span class="row-hour">{{ fmtHour(hr) }}</span>
+              </div>
+              <div class="scroll-box">
+                <TimeWindow
+                  v-for="w in getWindowsForHour(hr)"
+                  :key="w.id"
+                  :config="w"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- ── Right Arc Panel ── (wheel = shift window) -->
-      <div class="arc-col" @wheel.prevent="onArcWheel">
-        <ArcPanel
-          :hours="rightHours"
-          side="right"
-          :activeHours="allActive"
-          @markClick="goTo"
-        />
-      </div>
+      </Transition>
     </div>
 
     <!-- Corner time labels -->
@@ -140,6 +170,7 @@ function goBack() {
   padding: 0 16px;
   background: rgba(8, 16, 44, 0.9);
   border-bottom: 1px solid rgba(42, 127, 255, 0.3);
+  z-index: 10;
 }
 .back-btn {
   background: rgba(42, 127, 255, 0.15);
@@ -168,14 +199,23 @@ function goBack() {
   margin-left: auto;
 }
 
-/* ── Layout ── */
-.layout {
+/* ── Animated layout wrapper ── */
+.layout-wrapper {
   flex: 1;
-  display: flex;
-  flex-direction: row;
+  position: relative;
+  overflow: hidden;
   min-height: 0;
 }
 
+/* ── Layout (positioned absolute so transitions can overlap) ── */
+.layout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+/* Arc columns */
 .arc-col {
   flex-shrink: 0;
   width: 180px;
@@ -184,26 +224,41 @@ function goBack() {
   cursor: ns-resize;
 }
 
-/* ── Scroll area ── */
-.scroll-area {
+/* List columns */
+.list-col {
   flex: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   overflow: hidden;
-  border-left:  1px solid rgba(42, 127, 255, 0.2);
-  border-right: 1px solid rgba(42, 127, 255, 0.2);
 }
 
-.scroll-row {
+.list-row {
   flex: 1;
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  flex-direction: column;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   min-height: 0;
 }
-.scroll-row:last-child { border-bottom: none; }
+.list-row:last-child { border-bottom: none; }
+
+.row-header {
+  flex-shrink: 0;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  background: rgba(6, 14, 36, 0.6);
+  border-bottom: 1px solid rgba(42, 127, 255, 0.1);
+}
+
+.row-hour {
+  font-size: 10px;
+  font-weight: 700;
+  color: #4a90d0;
+  letter-spacing: 0.5px;
+}
 
 .scroll-box {
   flex: 1;
@@ -220,14 +275,6 @@ function goBack() {
 .scroll-box::-webkit-scrollbar-thumb {
   background: rgba(42, 127, 255, 0.4);
   border-radius: 2px;
-}
-
-.row-divider {
-  flex-shrink: 0;
-  width: 1px;
-  align-self: stretch;
-  margin: 6px 0;
-  background: rgba(42, 127, 255, 0.2);
 }
 
 /* ── Corner labels ── */
@@ -253,5 +300,39 @@ function goBack() {
   color: #ff9060;
   background: rgba(60, 20, 0, 0.6);
   border: 1px solid rgba(200, 80, 30, 0.4);
+}
+
+/* ── Slide animations ── */
+
+/* shift-fwd: time increases → old content exits upward, new enters from below */
+.shift-fwd-enter-from {
+  transform: translateY(35%);
+  opacity: 0;
+}
+.shift-fwd-enter-active {
+  transition: transform 0.38s ease, opacity 0.35s;
+}
+.shift-fwd-leave-to {
+  transform: translateY(-35%);
+  opacity: 0;
+}
+.shift-fwd-leave-active {
+  transition: transform 0.38s ease, opacity 0.35s;
+}
+
+/* shift-back: time decreases → old content exits downward, new enters from above */
+.shift-back-enter-from {
+  transform: translateY(-35%);
+  opacity: 0;
+}
+.shift-back-enter-active {
+  transition: transform 0.38s ease, opacity 0.35s;
+}
+.shift-back-leave-to {
+  transform: translateY(35%);
+  opacity: 0;
+}
+.shift-back-leave-active {
+  transition: transform 0.38s ease, opacity 0.35s;
 }
 </style>

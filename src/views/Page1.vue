@@ -10,6 +10,10 @@ const router = useRouter()
 const leftHours  = Array.from({ length: 12 }, (_, i) => i + 1)
 const rightHours = Array.from({ length: 12 }, (_, i) => (i + 13) % 24)
 
+function fmtHour(h) {
+  return `${String(h).padStart(2, '0')}:00`
+}
+
 function goTo(hour) {
   router.push(`/detail/${hour}`)
 }
@@ -21,31 +25,19 @@ function goTo(hour) {
     <div class="page-title">24小时时间刻度盘</div>
 
     <div class="layout">
-      <!-- ── Left Arc Panel ── -->
-      <div class="arc-col arc-col--left">
-        <ArcPanel :hours="leftHours" side="left" @markClick="goTo" />
-      </div>
-
-      <!-- ── Center Scroll Area ── -->
-      <div class="scroll-area">
+      <!-- ── Left List Column (arc is to the RIGHT of it) ── -->
+      <div class="list-col">
         <div
-          v-for="(_, k) in leftHours"
+          v-for="(hr, k) in leftHours"
           :key="k"
-          class="scroll-row"
+          class="list-row"
         >
-          <!-- Left scroll box (left arc hour) -->
-          <div class="scroll-box">
-            <TimeWindow
-              v-for="w in getWindowsForHour(leftHours[k])"
-              :key="w.id"
-              :config="w"
-            />
+          <div class="row-header">
+            <span class="row-hour">{{ fmtHour(hr) }}</span>
           </div>
-          <div class="row-divider" />
-          <!-- Right scroll box (right arc hour) -->
           <div class="scroll-box">
             <TimeWindow
-              v-for="w in getWindowsForHour(rightHours[k])"
+              v-for="w in getWindowsForHour(hr)"
               :key="w.id"
               :config="w"
             />
@@ -53,9 +45,34 @@ function goTo(hour) {
         </div>
       </div>
 
+      <!-- ── Left Arc Panel ── -->
+      <div class="arc-col">
+        <ArcPanel :hours="leftHours" side="left" @markClick="goTo" />
+      </div>
+
       <!-- ── Right Arc Panel ── -->
-      <div class="arc-col arc-col--right">
+      <div class="arc-col">
         <ArcPanel :hours="rightHours" side="right" @markClick="goTo" />
+      </div>
+
+      <!-- ── Right List Column (arc is to the LEFT of it) ── -->
+      <div class="list-col">
+        <div
+          v-for="(hr, k) in rightHours"
+          :key="k"
+          class="list-row"
+        >
+          <div class="row-header">
+            <span class="row-hour">{{ fmtHour(hr) }}</span>
+          </div>
+          <div class="scroll-box">
+            <TimeWindow
+              v-for="w in getWindowsForHour(hr)"
+              :key="w.id"
+              :config="w"
+            />
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -91,7 +108,7 @@ function goTo(hour) {
   min-height: 0;
 }
 
-/* Arc columns */
+/* Arc columns – fixed width, sit in the center pair */
 .arc-col {
   flex-shrink: 0;
   width: 180px;
@@ -99,27 +116,45 @@ function goTo(hour) {
   position: relative;
 }
 
-/* Scroll area */
-.scroll-area {
+/* List columns – fill remaining space on each side */
+.list-col {
   flex: 1;
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   overflow: hidden;
-  border-left:  1px solid rgba(42, 127, 255, 0.2);
-  border-right: 1px solid rgba(42, 127, 255, 0.2);
 }
 
-.scroll-row {
+/* Each list row corresponds to one arc hour mark */
+.list-row {
   flex: 1;
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  flex-direction: column;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   min-height: 0;
 }
-.scroll-row:last-child { border-bottom: none; }
+.list-row:last-child { border-bottom: none; }
 
+/* Time label bar at the top of each row */
+.row-header {
+  flex-shrink: 0;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  background: rgba(6, 14, 36, 0.6);
+  border-bottom: 1px solid rgba(42, 127, 255, 0.1);
+}
+
+.row-hour {
+  font-size: 10px;
+  font-weight: 700;
+  color: #4a90d0;
+  letter-spacing: 0.5px;
+}
+
+/* Horizontal scroll box holding TimeWindow cards */
 .scroll-box {
   flex: 1;
   display: flex;
@@ -135,13 +170,5 @@ function goTo(hour) {
 .scroll-box::-webkit-scrollbar-thumb {
   background: rgba(42, 127, 255, 0.4);
   border-radius: 2px;
-}
-
-.row-divider {
-  flex-shrink: 0;
-  width: 1px;
-  align-self: stretch;
-  margin: 4px 0;
-  background: rgba(42, 127, 255, 0.2);
 }
 </style>

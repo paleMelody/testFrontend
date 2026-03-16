@@ -79,7 +79,7 @@ const filterId = `glow-${props.side}`
       />
     </svg>
 
-    <!-- HTML labels (overlay) – positioned over the SVG -->
+    <!-- HTML labels (overlay) – positioned on the concave/inner side of each arc -->
     <div
       v-for="m in marks"
       :key="`lbl-${m.hour}`"
@@ -87,7 +87,7 @@ const filterId = `glow-${props.side}`
       :class="[`mark-label--${side}`, { 'mark-label--active': activeHours.includes(m.hour) }]"
       :style="side === 'left'
         ? { top: m.cy + 'px', left:  (m.cx + 10) + 'px' }
-        : { top: m.cy + 'px', right: (m.cx + 10) + 'px' }"
+        : { top: m.cy + 'px', right: (panelW - m.cx + 10) + 'px' }"
       @click="emit('markClick', m.hour)"
     >{{ fmtHour(m.hour) }}</div>
   </div>
