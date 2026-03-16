@@ -1,16 +1,17 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, getCurrentInstance } from 'vue'
 import { useArcPanel } from '../composables/useArcPanel.js'
 
 const props = defineProps({
-  hours:       { type: Array,  required: true },
-  side:        { type: String, required: true }, // 'left' | 'right'
-  activeHours: { type: Array,  default: () => [] }, // hours to highlight
+  hours:       { type: Array,   required: true },
+  side:        { type: String,  required: true }, // 'left' | 'right'
+  activeHours: { type: Array,   default: () => [] }, // hours to highlight
+  showArc:     { type: Boolean, default: true  }, // render arc curve + tick lines
+  showDots:    { type: Boolean, default: true  }, // render dots, rings, labels
 })
 
 const emit = defineEmits(['markClick'])
 
-// Standard Vue 3 template ref – no function wrapper needed
 const wrapEl = ref(null)
 
 const hoursRef = computed(() => props.hours)
@@ -20,12 +21,13 @@ function fmtHour(h) {
   return `${String(h).padStart(2, '0')}:00`
 }
 
-const filterId = `glow-${props.side}`
+// Unique filter ID per component instance to avoid SVG ID collisions
+const uid = getCurrentInstance()?.uid ?? 0
+const filterId = `glow-${props.side}-${uid}`
 </script>
 
 <template>
   <div class="arc-panel-wrap" ref="wrapEl">
-    <!-- SVG: arc path + dot markers -->
     <svg
       class="arc-svg"
       :viewBox="`0 0 ${panelW} ${panelH}`"
@@ -48,48 +50,51 @@ const filterId = `glow-${props.side}`
         </filter>
       </defs>
 
-      <!-- Main arc line -->
-      <path :d="arcPath" class="arc-line" :filter="`url(#${filterId})`" />
+      <!-- Static layer: arc curve + tick lines pointing toward the list -->
+      <template v-if="showArc">
+        <path :d="arcPath" class="arc-line" :filter="`url(#${filterId})`" />
+        <!-- Tick lines point TOWARD the adjacent list column -->
+        <line
+          v-for="m in marks" :key="`tick-${m.hour}`"
+          :x1="m.cx" :y1="m.cy"
+          :x2="side === 'left' ? 0 : panelW" :y2="m.cy"
+          class="tick-line"
+        />
+      </template>
 
-      <!-- Dashed tick lines from mark dot to panel edge -->
-      <line
-        v-for="m in marks" :key="`tick-${m.hour}`"
-        :x1="m.cx" :y1="m.cy"
-        :x2="side === 'left' ? panelW : 0" :y2="m.cy"
-        class="tick-line"
-      />
-
-      <!-- Outer glow ring for active hours -->
-      <circle
-        v-for="m in marks" :key="`ring-${m.hour}`"
-        v-show="activeHours.includes(m.hour)"
-        :cx="m.cx" :cy="m.cy" r="10"
-        class="mark-ring"
-        :filter="`url(#${filterId}-active)`"
-      />
-
-      <!-- Clickable dot -->
-      <circle
-        v-for="m in marks" :key="`dot-${m.hour}`"
-        :cx="m.cx" :cy="m.cy" r="5"
-        class="mark-dot"
-        :class="{ 'mark-dot--active': activeHours.includes(m.hour) }"
-        :filter="`url(#${filterId})`"
-        @click="emit('markClick', m.hour)"
-      />
+      <!-- Animated layer: glow rings + clickable dots -->
+      <template v-if="showDots">
+        <circle
+          v-for="m in marks" :key="`ring-${m.hour}`"
+          v-show="activeHours.includes(m.hour)"
+          :cx="m.cx" :cy="m.cy" r="10"
+          class="mark-ring"
+          :filter="`url(#${filterId}-active)`"
+        />
+        <circle
+          v-for="m in marks" :key="`dot-${m.hour}`"
+          :cx="m.cx" :cy="m.cy" r="5"
+          class="mark-dot"
+          :class="{ 'mark-dot--active': activeHours.includes(m.hour) }"
+          :filter="`url(#${filterId})`"
+          @click="emit('markClick', m.hour)"
+        />
+      </template>
     </svg>
 
-    <!-- HTML labels (overlay) – positioned on the concave/inner side of each arc -->
-    <div
-      v-for="m in marks"
-      :key="`lbl-${m.hour}`"
-      class="mark-label"
-      :class="[`mark-label--${side}`, { 'mark-label--active': activeHours.includes(m.hour) }]"
-      :style="side === 'left'
-        ? { top: m.cy + 'px', left:  (m.cx + 10) + 'px' }
-        : { top: m.cy + 'px', right: (panelW - m.cx + 10) + 'px' }"
-      @click="emit('markClick', m.hour)"
-    >{{ fmtHour(m.hour) }}</div>
+    <!-- Animated layer: HTML time labels on the concave (inner) side of the arc -->
+    <template v-if="showDots">
+      <div
+        v-for="m in marks"
+        :key="`lbl-${m.hour}`"
+        class="mark-label"
+        :class="[`mark-label--${side}`, { 'mark-label--active': activeHours.includes(m.hour) }]"
+        :style="side === 'left'
+          ? { top: m.cy + 'px', left:  (m.cx + 10) + 'px' }
+          : { top: m.cy + 'px', right: (panelW - m.cx + 10) + 'px' }"
+        @click="emit('markClick', m.hour)"
+      >{{ fmtHour(m.hour) }}</div>
+    </template>
   </div>
 </template>
 

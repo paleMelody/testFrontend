@@ -40,7 +40,11 @@ const transitionName = computed(() =>
   scrollDir.value > 0 ? 'shift-fwd' : 'shift-back'
 )
 
-// Debounce timestamp – plain variable, intentionally non-reactive (no Vue tracking needed)
+// Stable reference hours for the static arc background (N=4 always → same geometry)
+const bgHoursLeft  = [0, 1, 2, 3]
+const bgHoursRight = [4, 5, 6, 7]
+
+// Debounce timestamp – plain variable, intentionally non-reactive
 let lastScrollTime = 0
 function onArcWheel(e) {
   e.preventDefault()
@@ -76,11 +80,23 @@ function goBack() {
       <span class="scroll-hint">· 在时间刻度区域滚动鼠标可切换时间窗口</span>
     </div>
 
-    <!-- Animated layout wrapper -->
     <div class="layout-wrapper">
+      <!-- ── STATIC LAYER: arc curves + tick lines, never animated ── -->
+      <div class="layout layout--bg">
+        <div class="list-spacer" />
+        <div class="arc-col">
+          <ArcPanel :hours="bgHoursLeft"  side="left"  :show-dots="false" />
+        </div>
+        <div class="arc-col">
+          <ArcPanel :hours="bgHoursRight" side="right" :show-dots="false" />
+        </div>
+        <div class="list-spacer" />
+      </div>
+
+      <!-- ── ANIMATED LAYER: dots + list rows slide in/out on scroll ── -->
       <Transition :name="transitionName">
-        <div :key="startHour" class="layout">
-          <!-- ── Left List Column ── -->
+        <div :key="startHour" class="layout layout--fg">
+          <!-- Left list column -->
           <div class="list-col">
             <div
               v-for="(hr, k) in leftHours"
@@ -100,27 +116,29 @@ function goBack() {
             </div>
           </div>
 
-          <!-- ── Left Arc Panel ── (wheel = shift window) -->
+          <!-- Left arc dots + labels (wheel shifts time window) -->
           <div class="arc-col" @wheel.prevent="onArcWheel">
             <ArcPanel
               :hours="leftHours"
               side="left"
+              :show-arc="false"
               :activeHours="allActive"
               @markClick="goTo"
             />
           </div>
 
-          <!-- ── Right Arc Panel ── (wheel = shift window) -->
+          <!-- Right arc dots + labels -->
           <div class="arc-col" @wheel.prevent="onArcWheel">
             <ArcPanel
               :hours="rightHours"
               side="right"
+              :show-arc="false"
               :activeHours="allActive"
               @markClick="goTo"
             />
           </div>
 
-          <!-- ── Right List Column ── -->
+          <!-- Right list column -->
           <div class="list-col">
             <div
               v-for="(hr, k) in rightHours"
@@ -199,7 +217,7 @@ function goBack() {
   margin-left: auto;
 }
 
-/* ── Animated layout wrapper ── */
+/* ── Layout wrapper ── */
 .layout-wrapper {
   flex: 1;
   position: relative;
@@ -207,7 +225,7 @@ function goBack() {
   min-height: 0;
 }
 
-/* ── Layout (positioned absolute so transitions can overlap) ── */
+/* Both layout layers fill the wrapper absolutely */
 .layout {
   position: absolute;
   inset: 0;
@@ -215,7 +233,24 @@ function goBack() {
   flex-direction: row;
 }
 
-/* Arc columns */
+/* Static background: arc curves never move */
+.layout--bg {
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Animated foreground: dots + list content */
+.layout--fg {
+  z-index: 2;
+}
+
+/* Spacers in the bg layer match the list-col flex sizing */
+.list-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Arc columns – same width in both layers so positions align exactly */
 .arc-col {
   flex-shrink: 0;
   width: 180px;
@@ -302,9 +337,9 @@ function goBack() {
   border: 1px solid rgba(200, 80, 30, 0.4);
 }
 
-/* ── Slide animations ── */
+/* ── Slide animations (dots + list only; arc curves stay) ── */
 
-/* shift-fwd: time increases → old content exits upward, new enters from below */
+/* shift-fwd: time increases → old exits up, new enters from below */
 .shift-fwd-enter-from {
   transform: translateY(35%);
   opacity: 0;
@@ -320,7 +355,7 @@ function goBack() {
   transition: transform 0.38s ease, opacity 0.35s;
 }
 
-/* shift-back: time decreases → old content exits downward, new enters from above */
+/* shift-back: time decreases → old exits down, new enters from above */
 .shift-back-enter-from {
   transform: translateY(-35%);
   opacity: 0;
