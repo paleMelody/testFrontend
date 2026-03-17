@@ -24,15 +24,15 @@ function goTo(hour) {
 const leftArcRef  = ref(null)
 const rightArcRef = ref(null)
 
-// Left list: indent from the RIGHT by the arc dot's cx value (rawX)
-const leftIndents = computed(() =>
-  (leftArcRef.value?.marks ?? []).map(m => m.cx)
-)
-// Right list: indent from the LEFT by (panelW - cx) = rawX for right arc
-const rightIndents = computed(() => {
-  const w = rightArcRef.value?.panelW ?? 180
-  return (rightArcRef.value?.marks ?? []).map(m => w - m.cx)
+// Left list: padding-right = W - cx  (large at middle → narrow rows there → ( shape on right edge)
+const leftIndents = computed(() => {
+  const w = leftArcRef.value?.panelW ?? 180
+  return (leftArcRef.value?.marks ?? []).map(m => w - m.cx)
 })
+// Right list: padding-left = cx  (cx = W - rawX, large at middle → narrow rows there → ) shape on left edge)
+const rightIndents = computed(() =>
+  (rightArcRef.value?.marks ?? []).map(m => m.cx)
+)
 </script>
 
 <template>

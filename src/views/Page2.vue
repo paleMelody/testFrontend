@@ -49,15 +49,15 @@ const bgHoursRight = [4, 5, 6, 7]
 const bgLeftArcRef  = ref(null)
 const bgRightArcRef = ref(null)
 
-// Left list rows: indent from RIGHT by rawX (= cx on left arc)
-const leftIndents = computed(() =>
-  (bgLeftArcRef.value?.marks ?? []).map(m => m.cx)
-)
-// Right list rows: indent from LEFT by rawX (= panelW - cx on right arc)
-const rightIndents = computed(() => {
-  const w = bgRightArcRef.value?.panelW ?? 180
-  return (bgRightArcRef.value?.marks ?? []).map(m => w - m.cx)
+// Left list rows: padding-right = W - cx  (large at middle → ( shape on right edge)
+const leftIndents = computed(() => {
+  const w = bgLeftArcRef.value?.panelW ?? 180
+  return (bgLeftArcRef.value?.marks ?? []).map(m => w - m.cx)
 })
+// Right list rows: padding-left = cx  (cx = W - rawX, large at middle → ) shape on left edge)
+const rightIndents = computed(() =>
+  (bgRightArcRef.value?.marks ?? []).map(m => m.cx)
+)
 
 // Debounce timestamp – plain variable, intentionally non-reactive
 let lastScrollTime = 0
