@@ -35,10 +35,11 @@ function fmtHour(h) {
 const topLeft     = computed(() => fmtHour(leftHours.value[0]))
 const bottomRight = computed(() => fmtHour((startHour.value + 8) % 24))
 
-// Transition name driven by scroll direction
-const transitionName = computed(() =>
-  scrollDir.value > 0 ? 'shift-fwd' : 'shift-back'
-)
+// Stagger delay for per-row animation: rows ripple in the scroll direction
+const ROW_STAGGER_MS = 50   // ms between consecutive rows
+function rowDelay(k, n) {
+  return (scrollDir.value > 0 ? k : n - 1 - k) * ROW_STAGGER_MS
+}
 
 // Stable reference hours for the static arc background (N=4 always → same geometry)
 const bgHoursLeft  = [0, 1, 2, 3]
@@ -98,42 +99,49 @@ function goBack() {
     <div class="layout-wrapper">
       <!-- ── STATIC LAYER: arc curves + tick lines, never animated ── -->
       <div class="layout layout--bg">
-        <div class="list-spacer" />
-        <div class="arc-col">
+        <div class="arc-col arc-col--left">
           <ArcPanel ref="bgLeftArcRef"  :hours="bgHoursLeft"  side="left"  :show-dots="false" />
         </div>
-        <div class="arc-col">
+        <div class="arc-col arc-col--right">
           <ArcPanel ref="bgRightArcRef" :hours="bgHoursRight" side="right" :show-dots="false" />
         </div>
-        <div class="list-spacer" />
       </div>
 
-      <!-- ── ANIMATED LAYER: dots + list rows slide in/out on scroll ── -->
-      <Transition :name="transitionName">
-        <div :key="startHour" class="layout layout--fg">
+      <!-- ── FOREGROUND LAYER: list rows + arc dots, each row animates independently ── -->
+      <div class="layout layout--fg">
           <!-- Left list column -->
           <div class="list-col list-col--left">
             <div
               v-for="(hr, k) in leftHours"
               :key="k"
               class="list-row"
-              :style="{ paddingRight: (leftIndents[k] ?? 0) + 'px' }"
             >
-              <div class="row-header">
-                <span class="row-hour">{{ fmtHour(hr) }}</span>
-              </div>
-              <div class="scroll-box">
-                <TimeWindow
-                  v-for="w in getWindowsForHour(hr)"
-                  :key="w.id"
-                  :config="w"
-                />
-              </div>
+              <Transition :name="scrollDir > 0 ? 'row-fwd' : 'row-back'">
+                <div
+                  :key="hr"
+                  class="row-content"
+                  :style="{
+                    paddingRight: (leftIndents[k] ?? 0) + 'px',
+                    '--delay': rowDelay(k, leftHours.length) + 'ms'
+                  }"
+                >
+                  <div class="row-header">
+                    <span class="row-hour">{{ fmtHour(hr) }}</span>
+                  </div>
+                  <div class="scroll-box">
+                    <TimeWindow
+                      v-for="w in getWindowsForHour(hr)"
+                      :key="w.id"
+                      :config="w"
+                    />
+                  </div>
+                </div>
+              </Transition>
             </div>
           </div>
 
           <!-- Left arc dots + labels (wheel shifts time window) -->
-          <div class="arc-col" @wheel.prevent="onArcWheel">
+          <div class="arc-col arc-col--left" @wheel.prevent="onArcWheel">
             <ArcPanel
               :hours="leftHours"
               side="left"
@@ -144,7 +152,7 @@ function goBack() {
           </div>
 
           <!-- Right arc dots + labels -->
-          <div class="arc-col" @wheel.prevent="onArcWheel">
+          <div class="arc-col arc-col--right" @wheel.prevent="onArcWheel">
             <ArcPanel
               :hours="rightHours"
               side="right"
@@ -160,22 +168,31 @@ function goBack() {
               v-for="(hr, k) in rightHours"
               :key="k"
               class="list-row"
-              :style="{ paddingLeft: (rightIndents[k] ?? 0) + 'px' }"
             >
-              <div class="row-header">
-                <span class="row-hour">{{ fmtHour(hr) }}</span>
-              </div>
-              <div class="scroll-box">
-                <TimeWindow
-                  v-for="w in getWindowsForHour(hr)"
-                  :key="w.id"
-                  :config="w"
-                />
-              </div>
+              <Transition :name="scrollDir > 0 ? 'row-fwd' : 'row-back'">
+                <div
+                  :key="hr"
+                  class="row-content"
+                  :style="{
+                    paddingLeft: (rightIndents[k] ?? 0) + 'px',
+                    '--delay': rowDelay(k, rightHours.length) + 'ms'
+                  }"
+                >
+                  <div class="row-header">
+                    <span class="row-hour">{{ fmtHour(hr) }}</span>
+                  </div>
+                  <div class="scroll-box">
+                    <TimeWindow
+                      v-for="w in getWindowsForHour(hr)"
+                      :key="w.id"
+                      :config="w"
+                    />
+                  </div>
+                </div>
+              </Transition>
             </div>
           </div>
         </div>
-      </Transition>
     </div>
 
     <!-- Corner time labels -->
@@ -261,20 +278,18 @@ function goBack() {
   z-index: 2;
 }
 
-/* Spacers in the bg layer match the list-col flex sizing */
-.list-spacer {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Arc columns – same width in both layers so positions align exactly */
+/* Arc panels: absolutely centred at 50% boundary (same in bg + fg layers).
+   left-arc right-edge = 50% ; right-arc left-edge = 50%
+   This makes the arc line sit exactly at the list-content edge (zero gap). */
 .arc-col {
-  flex-shrink: 0;
+  position: absolute;
   width: 180px;
+  top: 0;
   height: 100%;
-  position: relative;
   cursor: ns-resize;
 }
+.arc-col--left  { right: 50%; }
+.arc-col--right { left:  50%; }
 
 /* List columns */
 .list-col {
@@ -292,12 +307,22 @@ function goBack() {
 
 .list-row {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  overflow: hidden;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   min-height: 0;
 }
 .list-row:last-child { border-bottom: none; }
+
+/* Inner content wrapper – absolutely fills the row slot so that the
+   entering and leaving elements can slide past each other. Padding
+   here (not on list-row) controls the arc-hugging indentation. */
+.row-content {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 .row-header {
   flex-shrink: 0;
@@ -358,37 +383,42 @@ function goBack() {
   border: 1px solid rgba(200, 80, 30, 0.4);
 }
 
-/* ── Slide animations (dots + list only; arc curves stay) ── */
+/* ── Per-row slide animations ── */
+/* Each row's content slides independently, staggered via --delay. */
 
-/* shift-fwd: time increases → old exits up, new enters from below */
-.shift-fwd-enter-from {
-  transform: translateY(35%);
+/* row-fwd: time increases → old exits upward, new enters from below */
+.row-fwd-enter-from {
+  transform: translateY(100%);
   opacity: 0;
 }
-.shift-fwd-enter-active {
-  transition: transform 0.38s ease, opacity 0.35s;
+.row-fwd-enter-active {
+  transition: transform 0.32s cubic-bezier(.25,.8,.25,1), opacity 0.28s;
+  transition-delay: var(--delay, 0ms);
 }
-.shift-fwd-leave-to {
-  transform: translateY(-35%);
+.row-fwd-leave-to {
+  transform: translateY(-100%);
   opacity: 0;
 }
-.shift-fwd-leave-active {
-  transition: transform 0.38s ease, opacity 0.35s;
+.row-fwd-leave-active {
+  transition: transform 0.32s cubic-bezier(.25,.8,.25,1), opacity 0.28s;
+  transition-delay: var(--delay, 0ms);
 }
 
-/* shift-back: time decreases → old exits down, new enters from above */
-.shift-back-enter-from {
-  transform: translateY(-35%);
+/* row-back: time decreases → old exits downward, new enters from above */
+.row-back-enter-from {
+  transform: translateY(-100%);
   opacity: 0;
 }
-.shift-back-enter-active {
-  transition: transform 0.38s ease, opacity 0.35s;
+.row-back-enter-active {
+  transition: transform 0.32s cubic-bezier(.25,.8,.25,1), opacity 0.28s;
+  transition-delay: var(--delay, 0ms);
 }
-.shift-back-leave-to {
-  transform: translateY(35%);
+.row-back-leave-to {
+  transform: translateY(100%);
   opacity: 0;
 }
-.shift-back-leave-active {
-  transition: transform 0.38s ease, opacity 0.35s;
+.row-back-leave-active {
+  transition: transform 0.32s cubic-bezier(.25,.8,.25,1), opacity 0.28s;
+  transition-delay: var(--delay, 0ms);
 }
 </style>

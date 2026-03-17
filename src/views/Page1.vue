@@ -41,7 +41,7 @@ const rightIndents = computed(() =>
     <div class="page-title">24小时时间刻度盘</div>
 
     <div class="layout">
-      <!-- ── Left List Column (arc is to the RIGHT of it) ── -->
+      <!-- ── Left List Column ── -->
       <div class="list-col list-col--left">
         <div
           v-for="(hr, k) in leftHours"
@@ -62,17 +62,7 @@ const rightIndents = computed(() =>
         </div>
       </div>
 
-      <!-- ── Left Arc Panel ── -->
-      <div class="arc-col">
-        <ArcPanel ref="leftArcRef" :hours="leftHours" side="left" @markClick="goTo" />
-      </div>
-
-      <!-- ── Right Arc Panel ── -->
-      <div class="arc-col">
-        <ArcPanel ref="rightArcRef" :hours="rightHours" side="right" @markClick="goTo" />
-      </div>
-
-      <!-- ── Right List Column (arc is to the LEFT of it) ── -->
+      <!-- ── Right List Column ── -->
       <div class="list-col list-col--right">
         <div
           v-for="(hr, k) in rightHours"
@@ -91,6 +81,16 @@ const rightIndents = computed(() =>
             />
           </div>
         </div>
+      </div>
+
+      <!-- ── Arc Panels: absolutely positioned at the 50% mark,
+               overlapping each list so the arc line sits flush
+               against the list-content right/left edge ── -->
+      <div class="arc-col arc-col--left">
+        <ArcPanel ref="leftArcRef" :hours="leftHours" side="left" @markClick="goTo" />
+      </div>
+      <div class="arc-col arc-col--right">
+        <ArcPanel ref="rightArcRef" :hours="rightHours" side="right" @markClick="goTo" />
       </div>
     </div>
   </div>
@@ -121,18 +121,23 @@ const rightIndents = computed(() =>
 
 .layout {
   flex: 1;
+  position: relative;
   display: flex;
   flex-direction: row;
   min-height: 0;
 }
 
-/* Arc columns – fixed width, sit in the center pair */
+/* Arc panels: absolutely centred at the 50% boundary so that the
+   arc line sits exactly at the list-content edge (zero gap).
+   left-arc right-edge = 50% ; right-arc left-edge = 50% */
 .arc-col {
-  flex-shrink: 0;
+  position: absolute;
   width: 180px;
+  top: 0;
   height: 100%;
-  position: relative;
 }
+.arc-col--left  { right: 50%; }
+.arc-col--right { left:  50%; }
 
 /* List columns – fill remaining space on each side */
 .list-col {
