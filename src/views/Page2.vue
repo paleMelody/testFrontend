@@ -44,6 +44,21 @@ const transitionName = computed(() =>
 const bgHoursLeft  = [0, 1, 2, 3]
 const bgHoursRight = [4, 5, 6, 7]
 
+// ── Arc-based per-row indentation ──────────────────────────────────
+// Use the static bg arc panels (always in DOM) as the source of mark geometry.
+const bgLeftArcRef  = ref(null)
+const bgRightArcRef = ref(null)
+
+// Left list rows: indent from RIGHT by rawX (= cx on left arc)
+const leftIndents = computed(() =>
+  (bgLeftArcRef.value?.marks ?? []).map(m => m.cx)
+)
+// Right list rows: indent from LEFT by rawX (= panelW - cx on right arc)
+const rightIndents = computed(() => {
+  const w = bgRightArcRef.value?.panelW ?? 180
+  return (bgRightArcRef.value?.marks ?? []).map(m => w - m.cx)
+})
+
 // Debounce timestamp – plain variable, intentionally non-reactive
 let lastScrollTime = 0
 function onArcWheel(e) {
@@ -85,10 +100,10 @@ function goBack() {
       <div class="layout layout--bg">
         <div class="list-spacer" />
         <div class="arc-col">
-          <ArcPanel :hours="bgHoursLeft"  side="left"  :show-dots="false" />
+          <ArcPanel ref="bgLeftArcRef"  :hours="bgHoursLeft"  side="left"  :show-dots="false" />
         </div>
         <div class="arc-col">
-          <ArcPanel :hours="bgHoursRight" side="right" :show-dots="false" />
+          <ArcPanel ref="bgRightArcRef" :hours="bgHoursRight" side="right" :show-dots="false" />
         </div>
         <div class="list-spacer" />
       </div>
@@ -97,11 +112,12 @@ function goBack() {
       <Transition :name="transitionName">
         <div :key="startHour" class="layout layout--fg">
           <!-- Left list column -->
-          <div class="list-col">
+          <div class="list-col list-col--left">
             <div
               v-for="(hr, k) in leftHours"
               :key="k"
               class="list-row"
+              :style="{ paddingRight: (leftIndents[k] ?? 0) + 'px' }"
             >
               <div class="row-header">
                 <span class="row-hour">{{ fmtHour(hr) }}</span>
@@ -139,11 +155,12 @@ function goBack() {
           </div>
 
           <!-- Right list column -->
-          <div class="list-col">
+          <div class="list-col list-col--right">
             <div
               v-for="(hr, k) in rightHours"
               :key="k"
               class="list-row"
+              :style="{ paddingLeft: (rightIndents[k] ?? 0) + 'px' }"
             >
               <div class="row-header">
                 <span class="row-hour">{{ fmtHour(hr) }}</span>
@@ -268,6 +285,10 @@ function goBack() {
   min-width: 0;
   overflow: hidden;
 }
+
+/* Left list: right-align content (toward arc) */
+.list-col--left .row-header { justify-content: flex-end; }
+.list-col--left .scroll-box { justify-content: flex-end; }
 
 .list-row {
   flex: 1;

@@ -24,6 +24,9 @@ function fmtHour(h) {
 // Unique filter ID per component instance to avoid SVG ID collisions
 const uid = getCurrentInstance()?.uid ?? 0
 const filterId = `glow-${props.side}-${uid}`
+
+// Expose marks and panel width so parent pages can compute per-row arc indentation
+defineExpose({ marks, panelW })
 </script>
 
 <template>

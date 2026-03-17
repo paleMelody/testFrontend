@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ArcPanel from '../components/ArcPanel.vue'
 import TimeWindow from '../components/TimeWindow.vue'
@@ -17,6 +18,21 @@ function fmtHour(h) {
 function goTo(hour) {
   router.push(`/detail/${hour}`)
 }
+
+// ── Arc-based per-row indentation ──────────────────────────────────
+// Template refs to the ArcPanel instances; marks are exposed via defineExpose.
+const leftArcRef  = ref(null)
+const rightArcRef = ref(null)
+
+// Left list: indent from the RIGHT by the arc dot's cx value (rawX)
+const leftIndents = computed(() =>
+  (leftArcRef.value?.marks ?? []).map(m => m.cx)
+)
+// Right list: indent from the LEFT by (panelW - cx) = rawX for right arc
+const rightIndents = computed(() => {
+  const w = rightArcRef.value?.panelW ?? 180
+  return (rightArcRef.value?.marks ?? []).map(m => w - m.cx)
+})
 </script>
 
 <template>
@@ -26,11 +42,12 @@ function goTo(hour) {
 
     <div class="layout">
       <!-- ── Left List Column (arc is to the RIGHT of it) ── -->
-      <div class="list-col">
+      <div class="list-col list-col--left">
         <div
           v-for="(hr, k) in leftHours"
           :key="k"
           class="list-row"
+          :style="{ paddingRight: (leftIndents[k] ?? 0) + 'px' }"
         >
           <div class="row-header">
             <span class="row-hour">{{ fmtHour(hr) }}</span>
@@ -47,20 +64,21 @@ function goTo(hour) {
 
       <!-- ── Left Arc Panel ── -->
       <div class="arc-col">
-        <ArcPanel :hours="leftHours" side="left" @markClick="goTo" />
+        <ArcPanel ref="leftArcRef" :hours="leftHours" side="left" @markClick="goTo" />
       </div>
 
       <!-- ── Right Arc Panel ── -->
       <div class="arc-col">
-        <ArcPanel :hours="rightHours" side="right" @markClick="goTo" />
+        <ArcPanel ref="rightArcRef" :hours="rightHours" side="right" @markClick="goTo" />
       </div>
 
       <!-- ── Right List Column (arc is to the LEFT of it) ── -->
-      <div class="list-col">
+      <div class="list-col list-col--right">
         <div
           v-for="(hr, k) in rightHours"
           :key="k"
           class="list-row"
+          :style="{ paddingLeft: (rightIndents[k] ?? 0) + 'px' }"
         >
           <div class="row-header">
             <span class="row-hour">{{ fmtHour(hr) }}</span>
@@ -153,6 +171,10 @@ function goTo(hour) {
   color: #4a90d0;
   letter-spacing: 0.5px;
 }
+
+/* Left list: right-align content (toward arc) */
+.list-col--left .row-header { justify-content: flex-end; }
+.list-col--left .scroll-box { justify-content: flex-end; }
 
 /* Horizontal scroll box holding TimeWindow cards */
 .scroll-box {
