@@ -147,19 +147,11 @@ function goBack() {
           </div>
 
           <!-- 左侧弧形刻度点 + 标签（在此区域滚动鼠标可切换时间窗口） -->
+          <!-- 注意：左弧列放在左侧列表列之后，确保它在同一层叠上下文中绘制于上方，
+               从而能正确接收鼠标滚轮事件 -->
           <div class="arc-col arc-col--left" @wheel.prevent="onArcWheel">
             <LeftArcPanel
               :hours="leftHours"
-              :show-arc="false"
-              :activeHours="allActive"
-              @markClick="goTo"
-            />
-          </div>
-
-          <!-- 右侧弧形刻度点 + 标签 -->
-          <div class="arc-col arc-col--right" @wheel.prevent="onArcWheel">
-            <RightArcPanel
-              :hours="rightHours"
               :show-arc="false"
               :activeHours="allActive"
               @markClick="goTo"
@@ -195,6 +187,18 @@ function goBack() {
                 </div>
               </Transition>
             </div>
+          </div>
+
+          <!-- 右侧弧形刻度点 + 标签放在右侧列表列之后，
+               保证在同一层叠上下文中绘制于上方，
+               从而能正确接收鼠标滚轮事件（修复右侧弧线附近无法滚动的问题） -->
+          <div class="arc-col arc-col--right" @wheel.prevent="onArcWheel">
+            <RightArcPanel
+              :hours="rightHours"
+              :show-arc="false"
+              :activeHours="allActive"
+              @markClick="goTo"
+            />
           </div>
         </div>
     </div>
