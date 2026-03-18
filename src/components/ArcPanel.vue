@@ -5,27 +5,32 @@ import { useArcPanel } from '../composables/useArcPanel.js'
 const props = defineProps({
   hours:       { type: Array,   required: true },
   side:        { type: String,  required: true }, // 'left' | 'right'
-  activeHours: { type: Array,   default: () => [] }, // hours to highlight
-  showArc:     { type: Boolean, default: true  }, // render arc curve + tick lines
-  showDots:    { type: Boolean, default: true  }, // render dots, rings, labels
+  activeHours: { type: Array,   default: () => [] }, // 需高亮的小时列表
+  showArc:     { type: Boolean, default: true  }, // 是否渲染弧线和刻度连线
+  showDots:    { type: Boolean, default: true  }, // 是否渲染刻度点、光环和标签
+  // 弧度系数（0.0 = 平直，1.0 = 最深弧形，默认 1.0）
+  // 修改此值可调整弧形深度，刻度垂直位置不变
+  curvature:   { type: Number,  default: 1.0   },
 })
 
 const emit = defineEmits(['markClick'])
 
 const wrapEl = ref(null)
 
-const hoursRef = computed(() => props.hours)
-const { panelW, panelH, marks, arcPath } = useArcPanel(hoursRef, props.side, wrapEl)
+const hoursRef     = computed(() => props.hours)
+// 将 curvature prop 包装为响应式 ref 传入 composable
+const curvatureRef = computed(() => props.curvature)
+const { panelW, panelH, marks, arcPath } = useArcPanel(hoursRef, props.side, wrapEl, curvatureRef)
 
 function fmtHour(h) {
   return `${String(h).padStart(2, '0')}:00`
 }
 
-// Unique filter ID per component instance to avoid SVG ID collisions
+// 为每个组件实例生成唯一的 SVG filter ID，避免 ID 冲突
 const uid = getCurrentInstance()?.uid ?? 0
 const filterId = `glow-${props.side}-${uid}`
 
-// Expose marks and panel width so parent pages can compute per-row arc indentation
+// 向父组件暴露刻度位置和面板宽度，用于计算列表行缩进
 defineExpose({ marks, panelW })
 </script>
 

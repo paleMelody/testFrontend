@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import ArcPanel from '../components/ArcPanel.vue'
+import LeftArcPanel  from '../components/LeftArcPanel.vue'
+import RightArcPanel from '../components/RightArcPanel.vue'
 import TimeWindow from '../components/TimeWindow.vue'
 import { getWindowsForHour } from '../composables/useArcPanel.js'
 
@@ -97,13 +98,18 @@ function goBack() {
     </div>
 
     <div class="layout-wrapper">
-      <!-- ── STATIC LAYER: arc curves + tick lines, never animated ── -->
+      <!-- ── 静态层：弧线 + 刻度连线，不参与动画。
+               ────────────────────────────────────────────────
+               【调整左侧弧度】修改 LeftArcPanel  的 :curvature 值（0.0～1.0）
+               【调整右侧弧度】修改 RightArcPanel 的 :curvature 值（0.0～1.0）
+               注意：前景层（fg）的同侧弧度需保持一致，否则刻度点与弧线会错位。
+               ──────────────────────────────────────────────── -->
       <div class="layout layout--bg">
         <div class="arc-col arc-col--left">
-          <ArcPanel ref="bgLeftArcRef"  :hours="bgHoursLeft"  side="left"  :show-dots="false" />
+          <LeftArcPanel  ref="bgLeftArcRef"  :hours="bgHoursLeft"  :show-dots="false" />
         </div>
         <div class="arc-col arc-col--right">
-          <ArcPanel ref="bgRightArcRef" :hours="bgHoursRight" side="right" :show-dots="false" />
+          <RightArcPanel ref="bgRightArcRef" :hours="bgHoursRight" :show-dots="false" />
         </div>
       </div>
 
@@ -140,22 +146,20 @@ function goBack() {
             </div>
           </div>
 
-          <!-- Left arc dots + labels (wheel shifts time window) -->
+          <!-- 左侧弧形刻度点 + 标签（在此区域滚动鼠标可切换时间窗口） -->
           <div class="arc-col arc-col--left" @wheel.prevent="onArcWheel">
-            <ArcPanel
+            <LeftArcPanel
               :hours="leftHours"
-              side="left"
               :show-arc="false"
               :activeHours="allActive"
               @markClick="goTo"
             />
           </div>
 
-          <!-- Right arc dots + labels -->
+          <!-- 右侧弧形刻度点 + 标签 -->
           <div class="arc-col arc-col--right" @wheel.prevent="onArcWheel">
-            <ArcPanel
+            <RightArcPanel
               :hours="rightHours"
-              side="right"
               :show-arc="false"
               :activeHours="allActive"
               @markClick="goTo"

@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import ArcPanel from '../components/ArcPanel.vue'
+import LeftArcPanel  from '../components/LeftArcPanel.vue'
+import RightArcPanel from '../components/RightArcPanel.vue'
 import TimeWindow from '../components/TimeWindow.vue'
 import { getWindowsForHour } from '../composables/useArcPanel.js'
 
@@ -83,14 +84,18 @@ const rightIndents = computed(() =>
         </div>
       </div>
 
-      <!-- ── Arc Panels: absolutely positioned at the 50% mark,
-               overlapping each list so the arc line sits flush
-               against the list-content right/left edge ── -->
+      <!-- ── 弧形面板：绝对定位于水平 50% 处，与列表列重叠，
+               使弧线恰好贴合列表内容边缘（零间距）。
+               ────────────────────────────────────────────
+               【调整左侧弧度】修改 LeftArcPanel 的 :curvature 值（0.0～1.0）
+               【调整右侧弧度】修改 RightArcPanel 的 :curvature 值（0.0～1.0）
+               左右两侧弧度可以分别独立设置。
+               ──────────────────────────────────────────── -->
       <div class="arc-col arc-col--left">
-        <ArcPanel ref="leftArcRef" :hours="leftHours" side="left" @markClick="goTo" />
+        <LeftArcPanel ref="leftArcRef" :hours="leftHours" @markClick="goTo" />
       </div>
       <div class="arc-col arc-col--right">
-        <ArcPanel ref="rightArcRef" :hours="rightHours" side="right" @markClick="goTo" />
+        <RightArcPanel ref="rightArcRef" :hours="rightHours" @markClick="goTo" />
       </div>
     </div>
   </div>
